@@ -1,4 +1,4 @@
-from user import data_structures
+import data_structures
 import pickle
 
 def complete_user(org_ID, email, salt, pwd_hash, rsa_pk, rsa_sk_bundle):

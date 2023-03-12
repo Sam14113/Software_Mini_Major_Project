@@ -1,5 +1,3 @@
-from user import sign_in
-from user import data_structures
 import pickle
 
 """test_data = [{

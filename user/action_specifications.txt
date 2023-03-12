@@ -1,0 +1,98 @@
+V0
+
+action ID: random integer
+timestamp: Unix timestamp
+org ID: org ID
+type: 'add org member', 'remove org member',
+      'new group','add group member', 'remove group member',
+      'add chat', 'delete chat',
+      'send chat message', 'edit chat message', 'delete chat message'
+      'send direct message', 'edit direct message', 'delete direct message'
+
+Under 'add org member' and 'remove org member': 'member_email', 'member_ID' (random)
+
+Under 'new group': 'group_name', 'group_ID' (random)
+
+Under 'add group member' and 'remove group member': 'group_ID', 'member_ID'
+
+Under 'add chat' and 'delete chat': 'group_ID', 'chat_ID', 'chat_name' (for add chat)
+
+Under the other 6: 'member_ID'/'group_ID' & 'chat_ID', 'message_ID', 'message_contents'
+
+V0.1:
+
+Sender ID (4 bytes), AES Key (16 bytes), Nonce (16 bytes), Tag (16 bytes) encrypted with recipient pk (total: 256 bytes)
+Previous signed using sender SK and SHA-256 (total: 256 bytes)
+Instructions encrypted in AES (variable)
+
+Server stores AES Tags to disqualify replay attacks. Maybe user needs to too?
+
+Instructions:
+
+Global:
+    IN1 <domain> - The next action is performed in a domain
+        eg. IN1 ORG ADD <organisation> would perform ADD on <organisation> in organisations
+    IN2 <domain> <ID> {<domain> <ID>} - The next action is performed in a specific instance of a domain.
+        eg. IN2 ORG 12 GRP 72 IN1 MBR REM 1543 would perform REM on 1543 in group members in group 72 in org 12
+    STY - (stay) Subsequent actions will be performed in the current domain until OUT
+    OUT - The next action will not be performed in any domain
+    FOR <store_ID> <iterable_ID> <instruction_ID> - for <store_ID> in <iterable_ID>: do <instruction_ID>
+    LET <ID> <Data Type/Structure> <size> <additional info> - Creates a variable which can be referred to later
+    YLD <ID> Sends the variable of ID back to the recipient after finishing execution
+    FWD <package> - Forward a package onto another user without reading it - mainly for server
+
+
+
+    ORG (Organisations):
+        ADD <organisation> - Adds an organisation
+        REM <organisation_ID> - Removes an organisation
+        ALL <ID> - Gets a list of all organisation IDs and stores at ID
+        VAL EML <email> - Validates Email. Returns bool, user ID, bool, salt (Note: In theory this is VAL which has an if EML)
+
+        MBR (Members):
+            ADD <member> - Adds a member
+            REM <member_ID> - Removes a member
+            GET <ID> <type/structure> <len> <info> - Gets member ID from info and stores it at ID (LATER)
+            ALL <ID> - Gets a list of all members in organisation and stores at ID (LATER)
+
+
+            DTA (Data):
+                GET <ID> <type> <structure> - Gets member info and stores it at ID
+                SET <member_ID> <type> <value> - Changes member info
+                VAL PWD <hashed_pwd> - Validates password.
+
+
+        GRP (Groups)
+            ADD <group> - Adds a group
+            DEL <group_ID> - Deletes a group
+            ALL <ID> - Gets a list of all group IDs and stores it at ID
+
+
+            CHT (Chats)
+                ADD <chat> - Adds a chat
+                DEL <chat_ID> - Deletes a chat
+                ALL <ID> - Gets a list of all chat IDs and stores it at ID
+
+
+                MSG (Messages)
+                    ADD <message> - adds a message
+                    DEL <message_ID> - deletes a message
+                    ALL <ID> - gets a list of all message IDs and stores it at ID
+
+
+                    RPL (Replies)
+                        ADD <reply> - adds a reply
+                        DEL <reply_ID> - deletes a reply
+                        ALL - gets a list of all reply IDs and stores it at ID
+
+
+                    WGT (Widgets) - widgets will be built into the system only later
+
+
+            MBR (Members)
+                ADD <member_ID> - Adds a member to a group
+                REM <member_ID> - Removes a member from a group
+                ALL <ID> - Get a list of all members and store at ID
+
+
+Note: If error (eg. in REM, DEL, GET), an error will be thrown back and that's it.
