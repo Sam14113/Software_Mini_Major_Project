@@ -1,0 +1,506 @@
+#: import WipeTransition kivy.uix.screenmanager.WipeTransition
+#: import sign_in user.sign_in
+#: import auth user.auth0_sign_in
+#: import sign_up user.sign_up
+#: import ds data_structures
+#: import auxiliary auxiliary
+#: import Clipboard kivy.core.clipboard.Clipboard
+#: import web webbrowser
+
+
+ScreenManagement:
+    transition: WipeTransition()
+    info:
+    LaunchScreen:
+    LoginAuth0Screen:
+    LoginEmailScreen:
+    LoginPasswordScreen:
+    GetVerifiedScreen:
+    RegisterOrgWelcomeScreen:
+    RegisterOrgMembersScreen:
+    ReceivePasswordScreen:
+    RegistrationSuccessScreen:
+    VerifyMemberScreen:
+
+<LaunchScreen@BlankScreen>:
+    name: 'LaunchScreen'
+    components: [subtitle, logo, start_button]
+    title_text: 'Clarity'
+    BoxLayout:
+        id: newBox
+        opacity: 0.2
+        
+        Logo:
+            size_hint_y: 2
+            id: logo
+
+        Label:
+            id: subtitle
+            size_hint_y: 0.5
+            text: 'Communication, Decluttered'
+            font_size: min(self.height,2*self.width/len(self.text))
+            color: 0, 0, 0, 1
+            halign: 'center'
+            valign:'top'
+                
+          
+        RoundedButton:
+            size_hint_y: 1
+            id: start_button
+            text: 'Enter App'
+            on_release:
+                root.manager.info = {'login_generator': auth.login()}
+                root.manager.current = 'LoginAuth0Screen'
+
+         
+<LoginAuth0Screen@BlankScreen>:
+    name: 'LoginAuth0Screen'
+    title_text: 'Hi There!'
+    components: [logo, info_label, code, open_button]
+
+    Logo:
+        id: logo
+        size_hint_y: 2
+    Label:
+        id: info_label
+        size_hint_y: 1
+        text: 'Use the following code to sign up or sign in'
+        font_size: min(self.height,2*self.width/len(self.text))
+        color: 0, 0, 0, 1
+
+    Label:
+        id: code
+        size_hint_y: 3
+        text: 'default'
+        font_size: 0.5*min(self.height,2*self.width/len(self.text))
+        color: 0, 0, 0, 1
+    RoundedButton:
+        id: open_button
+        size_hint_y: 2
+        text: 'Sign Up / Sign In'
+        on_release:
+            web.open(next(root.manager.info['login_generator']))
+            root.manager.info['user_info'] = next(root.manager.info['login_generator'])
+            root.redirect(root.manager.info['user_info'])
+
+<RegisterOrgWelcomeScreen@BlankScreen>:
+    name: 'RegisterOrgWelcomeScreen'
+    title_text: 'Welcome!'
+    components: [instructions, form, submit_button]
+            
+    Label:
+        id: instructions
+        size_hint_y: 1
+        text: ('We are so excited for your organisation to join us! To begin, we need some information about you and your organisation.')
+        color: 0, 0, 0, 1
+        text_size: 0.8*root.width, None
+        size: self.texture_size
+        font_size: min(0.25*self.height, 4*self.width/len(self.text))
+        halign: 'center'
+    
+        
+    GridLayout:
+        id: form
+        size_hint_y: 2
+        cols: 2
+        spacing: 20
+        Label: 
+            size_hint_x: 1
+            text:'Your Full Name:'
+            color: 0, 0, 0, 1
+        TextInput:
+            size_hint_x: 3
+            id: name_input
+            hint_text: 'Alice Maze'
+        
+        Label: 
+            size_hint_x: 1
+            text:'Organisation Name:'
+            color: 0, 0, 0, 1
+        TextInput:
+            size_hint_x: 3
+            id: org_name_input
+            hint_text: 'The Martian Circus'
+                
+        CheckBox:
+            size_hint_x: 1
+            id: agree_box
+            valign: 'bottom'
+
+        Label:
+            size_hint_x: 5
+            text: 'I have read and agree to the terms and conditions'
+            color: 0, 0, 0, 1
+            text_size: self.size
+            halign: 'left'
+            valign: 'middle'
+        
+    RoundedButton:
+        id: submit_button
+        size_hint_y: 1
+        size_hint_x: 0.8
+        pos_hint: {'center_x':0.5}
+        text: 'Join Clarity'
+        on_release:
+            root.manager.info.update({
+            'name': name_input.text,
+            'email': root.manager.info['user_info']['name'],
+            'org_name': org_name_input.text})
+
+            current_user = ds.Member(root.manager.info['name'], root.manager.info['email'])
+            root.manager.info['org_id'] = sign_up.sign_up_org(root.manager.info['org_name'], current_user)
+            root.manager.info['user info_2'] = sign_in.sign_in_new_v2(root.manager.info['org_id'], root.manager.info['email'])
+            root.manager.current = 'RegisterOrgMembersScreen'
+        
+        
+<ReceivePasswordScreen@BlankScreen>:
+    name: 'ReceivePasswordScreen'
+    password: auxiliary.generate_password()
+    title_text: 'Your password is:'
+    components: [password_button, info_label_1, info_label_2, got_it_button]
+
+    RoundedButton:
+        id: password_button
+        size_hint_y: 1
+        text: 'Click to Reveal Password'
+        on_release:
+            self.text = root.password
+            Clipboard.copy(root.password)
+        
+    Label:
+        id: info_label_1
+        size_hint_y: 2
+        text: 'What\'s going on?'
+        color: 0, 0, 0, 1
+        font_size: 0.5*min(self.height, 2*self.width/len(self.text))
+        
+    Label:
+        id: info_label_2
+        size_hint_y: 3
+        color: 0, 0, 0, 1
+        textString1: 'Your security is important to us, and we\'ve worked tirelessly to make sure this platform is secure.'
+        textString2: self.textString1 + '\n However, even some of the most secure platforms are often compromised.'
+        textString3: self.textString2 + '\n If Clarity is compromised, we don\'t want to compromise any of your other accounts.'
+        textString4: self.textString3 + '\n So we decided that it\'s best if we automatically generate a password for you.'
+        textString5: self.textString4 + '\n We know this may be frustrating, but we\'re just doing our best to keep you safe.'
+        text: self.textString5
+        font_size: min(self.height, 2.2*self.width/len(self.textString1))
+        halign: 'center'
+        
+    
+    RoundedButton:
+        id: got_it_button
+        size_hint_y: 1
+        text: 'Got It'
+        on_release:
+            root.manager.info['user info_2'] = sign_in.sign_in_new_v2(root.manager.info['org_id'], root.manager.info['email'])
+            password_button.text = 'Click to Reveal Password'
+            root.manager.current = 'RegisterOrgMembersScreen'
+
+
+<RegisterOrgMembersScreen@BlankScreen>:
+    name: 'RegisterOrgMembersScreen'
+    title_text: 'Add Members'
+    components: [box_layout]
+    
+    BoxLayout:
+        id: box_layout
+        size_hint: (0.9, 10)
+        pos_hint: {'center_x':0.48, 'center_y':0.5}
+        orientation:'vertical'
+        spacing: 10
+
+
+        Label:
+            size_hint_y: 1
+            text: 'Tip: If your organisation is big, just add team leaders. They can add everyone else.'
+            color: 0, 0, 0, 1
+            font_size: 0.9*min(self.height, 2*self.width/len(self.text))
+            
+        BoxLayout:
+            size_hint_y: 1
+            orientation:'horizontal'
+            Label:
+                id: label_1
+                text: 'Full Name'
+                font_size: 0.4*min(self.height, 2*self.width/len(self.text))
+                color: 0, 0, 0, 1
+                
+            Label:
+                id: label_2
+                text: 'Email'
+                font_size: label_1.font_size
+                color: 0, 0, 0, 1
+                
+        ScrollView:
+            id: my_scrollview
+            scroll_type: ['bars']
+            size_hint_y: 6
+            OrgDataEntry:
+                id: orgDataEntry
+                size_hint_y: None
+                row_default_height: (my_scrollview.height)/8-17.5
+                row_force_default_height: True
+        RoundedButton:
+            size_hint_y: 1
+            text: 'Register'
+            on_release:
+                orgDataEntry.make_members(root.manager.info['org_id'])
+                root.manager.current = 'RegistrationSuccessScreen'
+    Button:
+        id: 'plus_button'
+        size_hint: (0.03, 0.04)
+        pos_hint: {'right':0.95, 'top':0.18}
+        text: '+'
+        font_size: min(self.height, self.width)
+        on_release: orgDataEntry.add_row()
+        on_release: scrollview.scroll_y = 0
+
+<RegistrationSuccessScreen@BlankScreen>:
+    name: 'RegistrationSuccessScreen'
+    title_text:'That\'s it!'
+    components: [message, verify_button, sign_out_button]
+    
+    Label:
+        id: message
+        size_hint_y: 2
+        color: 0, 0, 0, 1
+        text: 'Thank you for joining Clarity! \n\n Now that you\'re in, meet with your team members to help them get started.'
+        font_size: min(self.height, 3*self.width/len(self.text[:]))
+        halign: 'center'
+        
+    RoundedButton:
+        id: verify_button
+        size_hint_y: 1
+        text: 'Verify Team Members'
+        on_release: root.manager.current = 'VerifyMemberScreen'
+    
+    RoundedButton:
+        id: sign_out_button
+        size_hint_y: 1
+        text: 'Sign Out'
+        on_release:
+            web.open(auth.logout())
+            root.manager.current = 'LaunchScreen'
+
+<VerifyMemberScreen@BlankScreen>:
+    name: 'VerifyMemberScreen'
+    title_text: 'Verify a Team Member'
+    components: [logo, instructions, code, verify_button]
+    Logo:
+        id: logo
+        size_hint_y: 2
+
+    Label:
+        id: instructions
+        color: 0, 0, 0, 1
+        text: 'Enter the code on the team member\'s screen:'
+        font_size: 0.8*min(self.height, 2*self.width/len(self.text))
+
+    TextInput:
+        id: code
+        halign: 'center'
+        valign: 'middle'
+        font_size: self.height/2
+
+    RoundedButton:
+        id: verify_button
+        text: 'Verify'
+        on_release:
+            root.verify(code.text)
+            root.manager.current: 'LaunchScreen'
+
+
+
+<LoginEmailScreen@BlankScreen>:
+    name: 'LoginEmailScreen'
+    title_text: 'Clarity'
+    components: [subtitle, logo, form, next_button]
+    Logo:
+        id: logo
+        size_hint_y: 2
+    
+    Label:
+        id: subtitle
+        size_hint_y: 1
+        text: 'Login'
+        text_size: self.size
+        valign: 'top'
+        halign: 'center'
+        color: 0, 0, 0, 1
+        font_size: 0.6*min(self.height, 2*self.width/len(self.text))
+
+    BoxLayout:
+        id: form
+        size_hint_y: 1
+        orientation:'horizontal'
+        spacing: 30
+        
+        Label:
+            size_hint_x: 1
+            text: 'Email:'
+            color: 0, 0, 0, 1
+            font_size: min(self.height, 2*self.width/len('password:'))
+            valign: 'middle'
+            halign: 'center'
+            
+        TextInput:
+            id: login_email
+            size_hint_x: 8
+            multiline: False
+            font_size: 0.4*self.height
+            padding: (10, 0.5*(self.height-self.line_height))
+            halign: 'left'
+            valign: 'middle'
+            
+    RoundedButton:
+        id: next_button
+        size_hint_y: 1
+        size_hint_x: 1.01
+        pos_hint: {'center_x':0.5}
+        text: 'Next'
+        on_release:
+            root.manager.info = {'email': login_email.text}
+            email_verification = sign_in.find_user(login_email.text)
+            if not email_verification: print('Not Found')
+            elif not email_verification[0]:root.manager.info['org_id'] = email_verification[1];root.manager.current = 'GetVerifiedScreen'
+            else:root.manager.info['org_id'] = email_verification[1];root.manager.info['salt'] = email_verification[2];root.manager.current = 'LoginPasswordScreen'
+                
+<LoginPasswordScreen@BlankScreen>:
+    name: 'LoginPasswordScreen'
+    title_text: 'Clarity'
+    components: [subtitle, logo, form, login_button]
+    Logo:
+        id: logo
+        size_hint_y: 2
+    
+    Label:
+        id: subtitle
+        size_hint_y: 1
+        text: 'Login'
+        text_size: self.size
+        valign: 'top'
+        halign: 'center'
+        color: 0, 0, 0, 1
+        font_size: 0.6*min(self.height, 2*self.width/len(self.text))
+
+    BoxLayout:
+        id: form
+        size_hint_y: 1
+        orientation:'horizontal'
+        spacing: 30
+        
+        Label:
+            size_hint_x: 1
+            text: 'Password:'
+            color: 0, 0, 0, 1
+            font_size: min(self.height, 2*self.width/len('password:'))
+            valign: 'middle'
+            halign: 'center'
+            
+        TextInput:
+            id: login_password
+            size_hint_x: 8
+            multiline: False
+            password: True
+            font_size: 0.4*self.height
+            padding: (10, 0.5*(self.height-self.line_height))
+            halign: 'left'
+            valign: 'middle'
+            
+    RoundedButton:
+        id: login_button
+        size_hint_y: 1
+        pos_hint: {'center_x':0.5}
+        text: 'Login'
+        on_release:
+            root.manager.info['user info'] = sign_in.sign_in_existing(root.manager.info['org_id'], root.manager.info['email'], login_password.text.encode(), root.manager.info['salt'])
+            root.manager.current = 'VerifyMemberScreen'
+
+<GetVerifiedScreen@BlankScreen>:
+    name: 'GetVerifiedScreen'
+    title_text: 'Welcome!'    
+    components: [logo, info_label, code, confirm_button]
+    Logo:
+        id: logo
+        size_hint_y: 2
+    Label:
+        id: info_label
+        size_hint_y: 1
+        text: 'To get verified, share this code with an existing member:'
+        font_size: min(self.height,2*self.width/len(self.text))
+        color: 0, 0, 0, 1
+        
+    Label:
+        id: code
+        size_hint_y: 3
+        text: 'gAEe4DX'
+        font_size: 0.5*min(self.height,2*self.width/len(self.text))
+        color: 0, 0, 0, 1
+
+    RoundedButton:
+        id: confirm_button
+        size_hint_y: 1
+        text: 'I\'ve been verified'
+        on_release:
+            root.check()
+<TitleLabel@Label>:
+    size_hint_x: 2
+    font_size: 0.7*min(self.height, 2*self.width/15)
+    color: 0, 0, 0, 1
+    halign: 'center'
+    valign:'middle'
+        
+<OrgDataEntry>:
+    cols: 1
+    spacing: 20
+    height: self.minimum_height
+
+<BlankScreen>:
+    border: 50
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        id: big_box_layout
+        size_hint: (0.9, 0.9)
+        pos_hint: {'center_x':0.5, 'center_y':0.5}
+        orientation:'vertical'
+        spacing: 30
+        border: 50
+        
+        Label:
+            id: title_label
+            size_hint_y: 1
+            text: root.title_text
+            color: 0, 0, 0, 1
+            font_size: 0.8*min(self.height, 2*self.width/len(self.text))
+            halign: 'center'
+            valign:'middle'
+        BoxLayout:
+            id: main_box_layout
+            orientation: 'vertical'
+            size_hint_y: 5
+            spacing: 30
+            
+    
+<RoundedButton@Button>:
+    background_color: (255, 255, 255, 0)
+    text: 'Default Text'
+    font_size: min(0.35*self.height, 2*self.width/len(self.text))
+    color: 0, 0, 0, 1
+    canvas.before:
+        Color:
+            rgba: (0, 225/255, 230/255, 1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [50]
+
+<Logo@Image>:
+    source: '/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/GUI/Clarity Logo 1.png'
+    allow_stretch: True

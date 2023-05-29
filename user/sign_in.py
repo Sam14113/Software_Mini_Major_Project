@@ -1,3 +1,6 @@
+import pickle
+
+import Crypto.Random
 import rsa, json
 from hashlib import scrypt as hash
 from Crypto.Cipher import AES
@@ -55,5 +58,59 @@ def sign_in_existing(org_ID, email, pwd_input, salt):
 
     #store keys in user_info object
     user_info.add_keys(aes, rsa_sk)
+
+    return user_info
+
+def sign_in_new_v2(org_ID, email):
+    #randomly generate AES key
+    aes = get_random_bytes(16)
+
+    #store AES key locally
+    with open(f"/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/user_data/{email}_aes.bin", 'xb') as aes_file:
+        aes_file.write(aes)
+
+        # create RSA key
+        rsa_pk, rsa_sk = rsa.newkeys(2048)
+        rsa_sk_file = rsa_sk.save_pkcs1()
+        # encrypt rsa_sk
+        aes_cipher = AES.new(aes, AES.MODE_EAX)
+        nonce = aes_cipher.nonce
+        rsa_sk_encrypted, tag = aes_cipher.encrypt_and_digest(rsa_sk_file)
+        rsa_sk_bundle = {
+            "encrypted sk": rsa_sk_encrypted,
+            "tag": tag,
+            "nonce": nonce
+        }
+
+        # update information in database and get relevant info back
+        user_info = manage_users.complete_user(org_ID, email, rsa_pk, rsa_sk_bundle)
+        user_info.add_keys(aes, rsa_sk)
+
+        return user_info
+
+
+def sign_in_existing_v2(org_ID, email):
+    user_info = validate_user.get_member_private(org_ID, email)
+
+    #get AES key
+    with open(f"/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/user_data/{email}_aes.bin", 'rb') as aes_file:
+        aes = aes_file.read()
+    #get RSA secret key
+    aes_cipher = AES.new(aes, AES.MODE_EAX, user_info.rsa_sk_bundle["nonce"])
+    rsa_sk_file = aes_cipher.decrypt_and_verify(user_info.rsa_sk_bundle["encrypted sk"], user_info.rsa_sk_bundle["tag"])
+    rsa_sk = rsa.PrivateKey.load_pkcs1(rsa_sk_file)
+
+    #store keys in user_info object
+    user_info.add_keys(aes, rsa_sk)
+    try:
+        with open(f"/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/user_data/{email}_groups.bin", 'rb') as groups_file:
+            groups_info = pickle.load(groups_file)
+            aes_cipher = AES.new(aes, AES.MODE_EAX, groups_info["nonce"])
+            groups = aes_cipher.decrypt_and_verify(groups_info['groups'], groups_info['tag'])
+            groups = pickle.loads(groups)
+            user_info.groups = groups
+    except Exception as e:
+        print("EXCEPTION:\n\n\n")
+        print(e)
 
     return user_info

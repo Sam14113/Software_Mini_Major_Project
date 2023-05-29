@@ -2,6 +2,13 @@ import math
 from Crypto.Cipher import AES
 from Crypto.Random import random, get_random_bytes
 
+def get_new_random_ID(banned_list):
+    max = 1000
+    ID = random.randint(1, max)
+    while ID in banned_list:
+        max *= 2
+        ID = random.randint(1, max)
+    return ID
 def encrypt_with_random_AES(plaintext):
     aes = get_random_bytes(16)
     aes_cipher = AES.new(aes, AES.MODE_EAX)
@@ -9,38 +16,66 @@ def encrypt_with_random_AES(plaintext):
     ciphertext, tag = aes_cipher.encrypt_and_digest(plaintext)
     return [aes, ciphertext, nonce, tag]
 
-def binary_search(array, item, strict = False):
-    middle = math.floor(len(array)/2)
+def generate_password():
+    consonant_letters = ["a", "b", "c", "d", "e", "f", "g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"]
+    consonant_pairs = ['bl', 'br', 'ch', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'kl', 'kr', 'ph', 'pl', 'pr',
+                       'sc', 'sh', 'sk', 'sl', 'sm', 'sn', 'sp', 'st', 'sw', 'th', 'tr', 'tw', 'wh', 'wr']
+    consonants = consonant_letters + consonant_pairs
+
+    vowel_letters = ["a", "e", "i", "o", "u"]
+    vowel_pairs = ['ai', 'au', 'ea', 'ee', 'ei', 'eu', 'ie', 'oa', 'oo', 'ou', 'ue', 'ui']
+
+    vowels = vowel_letters + vowel_pairs
+    password = ""
+    while len(password) <= 25:
+        syllable = random.choice(consonants) + random.choice(vowels)+random.choice(consonant_letters) + '_'
+        password += syllable
+
+    return password[:-1]
+
+
+def binary_search(array, item, key = lambda x:x, strict = False):
+    middle = math.floor(len(array) / 2)
 
     if len(array) == 0:
-        if strict == False: return -1
-        else: raise ValueError
+        if not strict:
+            return -1
+        else: raise ValueError("Value not found in array")
 
 
-    elif array[middle] == item:
+    elif key(array[middle]) == item:
         return middle
 
-    elif array[middle] > item:
-        return binary_search(array[:middle], item)
+    elif key(array[middle]) > item:
+        return binary_search(array[:middle], item, key, strict)
 
-    elif array[middle] < item:
-        return middle+1 + binary_search(array[middle+1:], item)
+    elif key(array[middle]) < item:
+        return middle+1 + binary_search(array[middle+1:], item, key, strict)
 
+def binary_search_value(array, item, key = lambda x:x, strict = False):
+    return array[binary_search(array, item, key, strict)]
 
-def linear_search(array, item):
+def linear_search(array, item, key = lambda x:x):
     for i, val in enumerate(array):
-        if val == item: return i
-    else: raise ValueError
+        if key(val) == item: return i
+    else:
+        raise ValueError("Value not found in array")
 
+def linear_search_value(array, item, key = lambda x:x):
+    return array[linear_search(array, item, key)]
 
-def mixed_search(array, item, prefix_len):
+def mixed_search(array, item, prefix_len, key = lambda x:x):
     try:
-        binary_search(array[:prefix_len], item, strict = True)
-    except:
-        linear_search(array[prefix_len:], item)
+        binary_search(array[:prefix_len], item, key, strict = True)
+    except ValueError:
+        linear_search(array[prefix_len:], item, key)
 
 
-def bubble_sort(array, max_passes = None):
+def mixed_search_value(array, item, prefix_len, key = lambda x:x):
+    return array[mixed_search(array, item, prefix_len, key)]
+
+
+def bubble_sort(array, key = lambda x:x, max_passes = None):
 
     # Algorithm will usually return a sorted array unless it requires more than max_passes.
     # Then it will just perform max_passes of bubble sort and return
@@ -56,12 +91,11 @@ def bubble_sort(array, max_passes = None):
     for i in range(min(len(array), max_passes)):
         swapped = False
         for j in range(len(array)-1, 0, -1):
-            if array[j] < array[j-1]:
+            if key(array[j]) < key(array[j-1]):
                 array[j], array[j-1] = (array[j-1], array[j])
                 swapped = True
         if not swapped: return array
     return array
-
 
 
 if __name__ == '__main__':
@@ -74,7 +108,7 @@ if __name__ == '__main__':
     for item in search_tests:
         ind = binary_search(array, item)
         if ind == -1: print('TOO SMALL')
-        else:print(array[ind])
+        else: print(array[ind])
 
 
 
