@@ -16,8 +16,34 @@ def get_rsa_pks(org_ID, member_IDs):
     for member in organisation.members:
         if member.ID in member_IDs:
             rsa_pks[member.ID] = member.rsa_pk  # Update the dictionary with the relevant public key
+            member_IDs.remove(member.ID)
+    if len(member_IDs) > 0:
+        error_message = "We couldn't find any members with the following emails: "
+        for member_ID in member_IDs:
+            error_message += '; ' + member_ID
+        raise KeyError(error_message)
 
     return rsa_pks
+
+def claim_available_group_ID(org_ID):
+    """ Finds and returns an available group ID in the given organisation. Then marks as used
+
+    :param int org_ID: The relevant Organisation ID
+    :return int: An available group ID in the organisation
+    """
+
+    with open("../database_stub/organisations.pickle", "rb") as orgs:  # The pickled list of organisations
+        organisations = pickle.load(orgs)
+
+    group_ID = get_new_random_ID(organisations[org_ID].group_IDs)
+    organisations[org_ID].add_group(group_ID)
+
+
+
+    with open("../database_stub/organisations.pickle", "wb") as orgs:  # The pickled list of organisations
+        pickle.dump(organisations, orgs)
+
+    return group_ID
 
 def send_message(org_ID, recipient_IDs, encrypted_messages):
     """ Sends encrypted messages to the inboxes of the given recipients.
@@ -40,14 +66,14 @@ def send_message(org_ID, recipient_IDs, encrypted_messages):
             #print(list(map(lambda member:member.ID, organisation.members)))
             #print(recipient_ID)
 
-            # Perform a binary search to find the member in the list of members
-            member_index = binary_search(
-                organisation.members, recipient_ID, key = lambda member: member.ID, strict = True)
+            # Perform a mixed search to find the member in the list of members
+            member_index = mixed_search(
+                organisation.members, recipient_ID, organisation.len_sorted, key = lambda member: member.ID)
 
             # Put the message in their inbox
             organisation.members[member_index].add_message(encrypted_messages[recipient_index])
 
-        except ValueError: # Occurs if binary search fails, i.e recipient_ID not in member_IDs or member_IDs not sorted
+        except ValueError: # Occurs if search fails, i.e recipient_ID not in member_IDs or member_IDs not sorted
             raise ValueError("Recipient ID not found in list of members")
 
     organisations[org_ID] = organisation
@@ -66,10 +92,17 @@ def get_inbox(org_ID, member_ID):
 
     with open("../database_stub/organisations.pickle", "rb") as orgs:
         organisations = pickle.load(orgs)
-        organisation = organisations[org_ID]
-        for member in organisation.members:
-            if member.ID == member_ID:
-                return member.inbox
+
+    organisation = organisations[org_ID]
+    member = organisation.get_member(member_ID)
+    inbox = member.get_inbox()
+
+    organisations[org_ID] = organisation
+
+    with open("../database_stub/organisations.pickle", "wb") as orgs:
+        pickle.dump(organisations, orgs)
+
+    return inbox
 
 def clear_inbox(org_ID, member_ID):
     """Clears the inbox of the given member

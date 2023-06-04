@@ -5,6 +5,7 @@ from time import time
 
 import auxiliary
 import data_structures as DS
+from server import communicate
 
 
 def validate_email(email):
@@ -79,13 +80,16 @@ def get_member_private(org_ID, user_ID):
     try:
         # Find member in the organisation
         prefix_len = organisations[org_ID].len_sorted
-        member = auxiliary.mixed_search_value(
+        member_index = auxiliary.mixed_search(
             organisations[org_ID].members, user_ID, prefix_len, key = lambda member: member.ID)
+        member = organisations[org_ID].members[member_index]
     except ValueError:
         raise ValueError("Member not found in organisation")
 
+    inbox = communicate.get_inbox(org_ID, member.ID)
     private_member = DS.Member_Private(member)
-    private_member.update_inbox(member.get_inbox())
+    private_member.update_inbox(inbox)
+
     return private_member
 
 
@@ -108,7 +112,7 @@ def upload_verification_hash(name, email, hash):
     except ValueError:
         hashes_list.append([name, email, hash, timestamp])
 
-    print(hashes_list)
+    #print(hashes_list)
 
     with open('../database_stub/verification_hashes.pickle', 'wb') as hashes:
         pickle.dump(hashes_list, hashes)
@@ -126,7 +130,6 @@ def verify_user(org_ID, verifier_ID, verifiee_email, code):
     :param int org_ID: org_ID which the user belongs to
     :param str verifier_ID: the ID of the member who is verifying the user
     :param str verifiee_email: the email of the user to be verified
-    :param str email: user email
     :param str code: the verification code as plaintext
     :return: None
     """
@@ -143,34 +146,46 @@ def verify_user(org_ID, verifier_ID, verifiee_email, code):
     hash_object.update(code.encode())
     hash = hash_object.hexdigest()
 
+    print(verifiee_email)
+    print(hash)
+
     for name_candidate, email_candidate, hash_candidate, timestamp in hashes_list:
+        print(email_candidate)
+        print(hash_candidate)
+        print(email_candidate == verifiee_email and hash_candidate == hash)
         if email_candidate == verifiee_email and hash_candidate == hash:
             if time() - timestamp >= 3600000000000:
-                raise TimeoutError("Verification code has expired")
+                raise TimeoutError("Verification code has expired.")
             break
     else:
-        raise ValueError("Either the email or the verification code is incorrect")
+        raise ValueError("Either the email or the verification code is incorrect. Please try again.")
 
     try:
-        member_index = auxiliary.linear_search(organisation.members, verifiee_email, lambda member: member.email)
+        member_index = auxiliary.mixed_search(organisation.members,
+                                              verifiee_email,
+                                              organisation.len_sorted,
+                                              key =
+                                              lambda member: member.email)
     except ValueError:
         member = DS.Member(name_candidate, verifiee_email)
-        member.update(verification = verifier_ID)
+        member.update(org_ID = org_ID, verification = verifier_ID)
 
         organisation.add_member(member)
 
         organisations[org_ID] = organisation
 
+
         with open('../database_stub/organisations.pickle', 'wb') as orgs:
             pickle.dump(organisations, orgs)
-            return
 
-    raise ValueError("Member already verified")
+    else:
+        #print(data_structures.deobjectify(organisation.members[member_index]))
+        raise ValueError("The member has already been verified.")
 
 
 
 def check_is_verified(org_ID, email):
-    #TODO Stringdoc
+    #TODO Docstring
     with open('../database_stub/organisations.pickle', 'rb') as orgs:
         organisations = pickle.load(orgs)
     for ID, org in enumerate(organisations):

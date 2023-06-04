@@ -31,7 +31,11 @@ def binary_search_tests():
     print((binary_search([Person('Bob', 2),Person('Ava', 4),Person('Tim', 6),Person('Sam', 7)], 7, lambda item:item.age, strict = False)).__dict__)
     yield
 
-
+def mixed_search_tests():
+    mixed_search = auxiliary.mixed_search
+    yield mixed_search([1,2,3,2.5,0,1.5], 2, 3)
+    yield mixed_search([1,2,3,2.5,0,1.5], 2.5, 3)
+    yield mixed_search
 
 if __name__ == '__main__':
 

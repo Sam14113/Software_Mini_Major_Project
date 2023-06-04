@@ -12,9 +12,9 @@ ScreenManagement:
     info:
     LaunchScreen:
     LoginAuth0Screen:
-    GetVerifiedWelcomeScreen:
+    WelcomeScreen:
     GetVerifiedScreen:
-    RegisterOrgWelcomeScreen:
+    RegisterOrgScreen:
     RegisterOrgMembersScreen:
     RegistrationSuccessScreen:
     VerifyMemberScreen:
@@ -24,12 +24,9 @@ ScreenManagement:
 
 <LaunchScreen@BlankScreen>:
     name: 'LaunchScreen'
-    components: [subtitle, logo, register_org_button, enter_button]
+    components: [subtitle, logo, enter_button]
     title_text: 'Clarity'
-    #BoxLayout:
-        #id: newBox
-        #opacity: 0.2
-        
+
     Logo:
         size_hint_y: 2
         id: logo
@@ -42,14 +39,6 @@ ScreenManagement:
         color: 0, 0, 0, 1
         halign: 'center'
         valign:'top'
-
-    RoundedButton:
-        size_hint_y: 1
-        id: register_org_button
-        text: 'Register Your Organisation'
-        on_release:
-            root.manager.info = {'login_generator': auth.login(), 'existing_org': False}
-            root.manager.current = 'LoginAuth0Screen'
 
     RoundedButton:
         size_hint_y: 1
@@ -87,17 +76,18 @@ ScreenManagement:
         text: 'Sign Up / Sign In'
         on_release:
             web.open(next(root.manager.info['login_generator']))
-            root.manager.info['user_info'] = next(root.manager.info['login_generator'])
-            root.redirect(root.manager.info['user_info'])
 
-<RegisterOrgWelcomeScreen@BlankScreen>:
-    name: 'RegisterOrgWelcomeScreen'
+            root.redirect()
+
+<RegisterOrgScreen>:
+    name: 'RegisterOrgScreen'
     title_text: 'Welcome!'
-    components: [instructions, form, submit_button]
-            
+    components: [logo, instructions, form, submit_button]
+    Logo:
+        id: logo
     Label:
         id: instructions
-        size_hint_y: 1
+        size_hint_y: 2
         text: ('We are so excited for your organisation to join us! To begin, we need some information about you and your organisation.')
         color: 0, 0, 0, 1
         text_size: 0.8*root.width, None
@@ -108,18 +98,10 @@ ScreenManagement:
         
     GridLayout:
         id: form
-        size_hint_y: 2
+        size_hint_y: 1
         cols: 2
         spacing: 20
-        Label: 
-            size_hint_x: 1
-            text:'Your Full Name:'
-            color: 0, 0, 0, 1
-        TextInput:
-            size_hint_x: 3
-            id: name_input
-            hint_text: 'Alice Maze'
-        
+
         Label: 
             size_hint_x: 1
             text:'Organisation Name:'
@@ -144,20 +126,12 @@ ScreenManagement:
         
     RoundedButton:
         id: submit_button
-        size_hint_y: 1
-        size_hint_x: 0.8
-        pos_hint: {'center_x':0.5}
+        #size_hint_y: 1
+        #size_hint_x: 0.8
+        #pos_hint: {'center_x':0.5}
         text: 'Join Clarity'
         on_release:
-            root.manager.info.update({
-            'name': name_input.text,
-            'email': root.manager.info['user_info']['name'],
-            'org_name': org_name_input.text})
-
-            current_user = ds.Member(root.manager.info['name'], root.manager.info['email'])
-            root.manager.info['org_ID'] = sign_up.sign_up_org(root.manager.info['org_name'], current_user)
-            root.manager.info['user info_2'] = sign_in.sign_in_new_v2(root.manager.info['org_ID'], root.manager.info['email'])
-            root.manager.current = 'RegisterOrgSuccessScreen'
+            root.on_submission(org_name_input.text)
 
 <RegisterOrgMembersScreen@BlankScreen>:
     name: 'RegisterOrgMembersScreen'
@@ -266,7 +240,7 @@ ScreenManagement:
         font_size: self.height/2
         hint_text: 'email'
 
-    TextInput:
+    CapitalInput:
         id: code
         halign: 'center'
         valign: 'middle'
@@ -280,29 +254,40 @@ ScreenManagement:
             root.verify(email.text.lower(), code.text.upper())
             root.manager.current = 'HomeScreen'
 
-<GetVerifiedWelcomeScreen@BlankScreen>:
-    name: 'GetVerifiedWelcomeScreen'
-    title_text: 'Welcome!'
-    components: [logo, info_label, name, continue_button]
+<WelcomeScreen@BlankScreen>:
+    name: 'WelcomeScreen'
+    title_text: 'Welcome to Clarity!'
+    components: [logo, info_label, name, register_org_button, join_org_button]
     Logo:
         id: logo
         size_hint_y: 2
     Label:
         id: info_label
         size_hint_y: 1
-        text: 'What\'s your name?'
+        text: 'It\'s great to have you onboard. What\'s your name?'
+        color: 0, 0, 0, 1
 
     TextInput:
         id: name
         halign: 'center'
         valign: 'middle'
         font_size: self.height/2
+        hint_text: 'Hugh Raye'
 
     RoundedButton:
-        id: continue_button
+        id: register_org_button
+        text: 'Register Your Organisation'
         on_release:
-            root.manager.info.update({'name': name})
-            root.manager.current = 'GetVerifiedScreen'
+            root.redirect(name = name.text, next_screen = 'RegisterOrgScreen')
+
+
+    RoundedButton:
+        id: join_org_button
+        text: 'Join an Existing Organisation'
+        on_release:
+            root.redirect(name = name.text, next_screen = 'GetVerifiedScreen')
+
+
 
 
 <GetVerifiedScreen@BlankScreen>:
@@ -329,7 +314,7 @@ ScreenManagement:
     RoundedButton:
         id: confirm_button
         size_hint_y: 1
-        text: 'I\'ve been verified'
+        text: 'Refresh'
         on_release:
             root.check()
 
@@ -353,16 +338,7 @@ ScreenManagement:
 
     BoxLayout:
         orientation: 'vertical'
-        TitleLabel:
-            size_hint_x: 1
-            size_hint_y: 1
-            canvas.before:
-                Color:
-                    rgba: 0, 225/255, 230/255, 1
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            text: 'Clarity'
+
 
         BoxLayout:
             size_hint_y: 8
@@ -373,12 +349,23 @@ ScreenManagement:
                 size_hint_x: 1
                 #spacing: 10
 
+                TitleLabel:
+                    size_hint_x: 1
+                    size_hint_y: 1
+                    canvas.before:
+                        Color:
+                            rgba: 0, 200/255, 205/255, 0.5
+                        Rectangle:
+                            pos: self.pos
+                            size: self.size
+                    text: 'Clarity'
+
                 BoxLayout:
                     size_hint_y: 1
                     orientation: 'horizontal'
                     canvas.before:
                         Color:
-                            rgba: 0, 225/255, 230/255, 0.5
+                            rgba: 0, 200/255, 205/255, 0.5
                         Rectangle:
                             pos: self.pos
                             size: self.size
@@ -392,6 +379,7 @@ ScreenManagement:
                             color: 0, 0, 0, 1
                         Button:
                             id: 'create_group_button'
+                            size_hint_y: 0.5
                             text: '+'
                             font_size: min(self.height, self.width)
                             on_release: root.manager.current = 'CreateGroupScreen'
@@ -405,6 +393,7 @@ ScreenManagement:
 
                         Button:
                             id: 'create_chat_button'
+                            size_hint_y: 0.5
                             text: '+'
                             font_size: min(self.height, self.width)
                             on_release:
@@ -429,7 +418,7 @@ ScreenManagement:
 
             BoxLayout:
                 orientation: 'vertical'
-                size_hint_x: 3
+                size_hint_x: 5
 
                 ScrollView:
                     size_hint_y: 3
@@ -450,6 +439,7 @@ ScreenManagement:
 
         RoundedButton:
             id: verify_button
+            size_hint_y:
             text: 'Verify Member'
             on_release: root.manager.current = 'VerifyMemberScreen'
 
@@ -461,22 +451,55 @@ ScreenManagement:
                 root.manager.info = {}
                 web.open(auth.logout())
                 quit()
+
+
 <CreateGroupScreen>:
     name: 'CreateGroupScreen'
     title_text: 'Create Group'
-    components: [group_name, participants, create_group_button]
+    components: [box_layout]
 
-    TextInput:
-        id: group_name
-    OrgDataEntry:
-        size_hint_y: 8
-        id: participants
+    BoxLayout:
+        id: box_layout
+        size_hint: (0.9, 10)
+        pos_hint: {'center_x':0.48, 'center_y':0.5}
+        orientation:'vertical'
+        spacing: 10
+
+
+        BoxLayout:
+            size_hint_y: 1
+            orientation:'horizontal'
+
+        ScrollView:
+            id: my_scrollview
+            scroll_type: ['bars']
+            size_hint_y: 6
+            OrgDataEntry:
+                id: participants
+                size_hint_y: None
+                row_default_height: (my_scrollview.height)/8-17.5
+                row_force_default_height: True
+        RoundedButton:
+            size_hint_y: 1
+            text: 'Create Group'
+            on_release:
+                root.create_group()
+        RoundedButton:
+            size_hint_y: 1
+            text: 'Back'
+            on_release:
+                root.manager.current = 'HomeScreen'
 
     Button:
-        id: create_group_button
-        text: 'Create Group'
-        on_release:
-            root.create_group()
+        # NOTE: this isn't included in the components list so that it doesn't get put in the main box layout
+        id: 'plus_button'
+        size_hint: (0.03, 0.04)
+        pos_hint: {'right':0.95, 'top':0.18}
+        text: '+'
+        font_size: min(self.height, self.width)
+        on_release: participants.add_row()
+        on_release: my_scrollview.scroll_y = 0
+
 
 <CreateChatScreen>:
     name: 'CreateChatScreen'
@@ -556,6 +579,17 @@ ScreenManagement:
             size: self.size
             pos: self.pos
             radius: [50]
+
+<CircularButton@Button>:
+    background_color: (255, 255, 255, 0)
+    color: 0, 0, 0, 1
+    canvas.before:
+        Color:
+            rgba: (0, 225/255, 230/255, 1)
+        Ellipse:
+            size: self.size
+            pos: self.pos
+
 
 <Logo@Image>:
     source: '/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/GUI/Clarity Logo 1.png'

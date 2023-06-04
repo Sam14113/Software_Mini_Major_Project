@@ -1,12 +1,17 @@
+import json
+import pickle
 import random
 import string
 import time
 
 from Crypto.Hash import SHA256
+from Crypto.Cipher import AES
 
-from data_structures import *
-import user
-from server import validate_user
+import data_structures
+from data_structures import deobjectify, Group, Chat, Member, Organisation, Message, Member_Private
+from user import sign_up, sign_in, chat_functionality_v2, recieve, send
+from server import validate_user, manage_users, communicate
+import auxiliary
 
 count_calls = [0,0,0,0,0]
 names = [{"name":"Lisle Soffe"},
@@ -2011,29 +2016,37 @@ orgs = [{"org":"Flashdog"},
 {"org":"Oloo"},
 {"org":"Yotz"},
 {"org":"Yodo"}]
-orgs = [org["org"] for org in orgs]
+orgs = list(set([org["org"] for org in orgs]))
 
 existing_org_IDs = {}
 
 orgs_existing_members = {org: [] for org in orgs}
 orgs_available_members = {org: list(names) for org in orgs}
 
+def name_to_ID(name, org):
+    return f'{name}@{org}.com'
+
 def master_flow():
+    manage_users.clear_orgs()
+    manage_users.clear_hashes()
+
     sign_up_org_flow()
     member_creates_chat_flow()
     member_sends_message_flow()
 
-    for _ in range(10):
-        val = random.randint(1,5)
+    for _ in range(int(input("Iterations:"))):
+        val = random.randint(1,100)
         if val == 1:
             sign_up_org_flow()
-        elif val == 2:
+        elif val <= 5:
             sign_up_and_join_flow()
-        elif val == 3:
+        elif val <= 30:
+            copy_member_flow()
+        elif val <= 50:
             member_creates_group_flow()
-        elif val == 4:
+        elif val <= 75:
             member_creates_chat_flow()
-        elif val == 5:
+        else:
             member_sends_message_flow()
 
 
@@ -2053,17 +2066,18 @@ def sign_up_org_flow():
     org = orgs.pop()
     name = orgs_available_members[org].pop()
     orgs_existing_members[org].append(name)
-    email = f'{name}@{org}.com'
+    email = name_to_ID(name, org)
 
-    new_member = Member(name, email)
+    with open("/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt", "a") as f:
+        print(name, 'signs up', org, file=f)
 
-    user.sign_up.sign_up_org(org, new_member)
+    member = Member(name, email)
 
-    verified, org_ID, setup = user.sign_in.find_user(email)
+    sign_up.sign_up_org(org, member)
+
+    verified, org_ID, setup = sign_in.find_user(email)
     existing_org_IDs[org_ID] = org
-
-    member_private = user.sign_in.sign_in_new_v2(org_ID, email)
-
+    member_private = sign_in.sign_in_new_v2(org_ID, email)
 
     sign_up_and_join_flow(org_ID = org_ID)
 
@@ -2085,32 +2099,81 @@ Complete Member Creates Group in their Organisation flow for this member """
 
     count_calls[1]+=1
     if org_ID is None:
-        org_ID = random.choice(existing_org_IDs)
+        org_ID = random.choice(list(existing_org_IDs.keys()))
 
     org = existing_org_IDs[org_ID]
 
-    name = orgs_available_members[org].pop()
-    email = f'{name}@{org}.com'
+    new_name = orgs_available_members[org].pop()
+    new_email = f'{new_name}@{org}.com'
 
-    new_member = Member(name, email)
+    with open("/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt", "a") as f:
+        print(new_name, 'joins', org, file=f)
 
-    code = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    new_member = Member(new_name, new_email)
+
+    code = "".join([random.choice(string.ascii_uppercase + string.digits) for _ in range(8)])
 
     hash_object = SHA256.new()
     hash_object.update(code.encode())
     hash = hash_object.hexdigest()
 
-    validate_user.upload_verification_hash(name, email, hash)
+    validate_user.upload_verification_hash(new_name, new_email, hash)
 
     existing_member = random.choice(orgs_existing_members[org])
 
     existing_member_info = sign_in.sign_in_existing_v2(org_ID, f'{existing_member}@{org}.com')
 
-    validate_user.verify_user(org_ID, existing_member_info.ID, email, code)
+    validate_user.verify_user(org_ID, existing_member_info.email, new_email, code)
 
-    sign_in.sign_in_existing_v2(org_ID, email)
+    orgs_existing_members[org].append(new_name)
+
+    new_member_info = sign_in.sign_in_new_v2(org_ID, new_email)
 
     member_creates_group_flow(new_member.email)
+    member_creates_group_flow(existing_member_info.email)
+
+def copy_member_flow():
+    """Data Structures -> Member -> Member Constructor - Create a new member with random name and email
+
+    Add them to a random organisation
+
+    Sign In -> Sign In Existing V2 (ANY existing member of that organisation)
+
+    Manage Users -> Complete User (using parameters from the existing member)
+
+    Save AES Key as file"""
+
+    count_calls[1]+=1
+
+    org_ID = random.choice(list(existing_org_IDs.keys()))
+
+    org = existing_org_IDs[org_ID]
+
+    new_name = orgs_available_members[org].pop()
+    new_email = f'{new_name}@{org}.com'
+
+    with open("/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt", "a") as f:
+        print(new_name, 'is copied to', org, file=f)
+
+    new_member = Member(new_name, new_email)
+
+    manage_users.add_member(org_ID, new_member)
+
+    existing_member = random.choice(orgs_existing_members[org])
+
+    existing_member_info = sign_in.sign_in_existing_v2(org_ID, f'{existing_member}@{org}.com')
+
+    rsa_pk = communicate.get_rsa_pks(org_ID, [existing_member_info.email])[existing_member_info.email]
+
+    manage_users.complete_user(org_ID, new_email, rsa_pk, existing_member_info.rsa_sk_bundle)
+
+    orgs_existing_members[org].append(new_name)
+
+    with open(f"/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/user_data/{new_email}_aes.bin", 'xb') as aes_file:
+        aes_file.write(existing_member_info.aes)
+
+    member_creates_group_flow(new_email)
+
 
 def member_creates_group_flow(member_email = None):
     """Sign In -> Find User (The Member)
@@ -2121,35 +2184,39 @@ Data Structures -> Member Private -> Process Inbox
 
 Chat Functionality V2 -> Create Group (Use random subset of members as participants)
 
-Data Structures -> Member Private -> Add Group
-
-Data Structures -> Member Private -> Process Inbox """
+Data Structures -> Member Private -> Add Group"""
 
     if member_email is None:
-        org_ID = random.choice(existing_org_IDs)
+        org_ID = random.choice(list(existing_org_IDs.keys()))
         org = existing_org_IDs[org_ID]
-        member_email = random.choice(orgs_existing_members[org])
+        member_name = random.choice(orgs_existing_members[org])
+        member_email = f'{member_name}@{org}.com'
 
     count_calls[2]+=1
 
-    verified, org_ID, setup = user.sign_in.find_user(member_email)
 
-    member_info = sign_in.sign_in_existing_v2(org_ID, member_email)
-
-    member_info.process_inbox()
+    verified, org_ID, setup = sign_in.find_user(member_email)
 
     org = existing_org_IDs[org_ID]
 
-    participant_IDs = [member.ID for member in orgs_existing_members[org] if random.random() < 0.2]
+    participant_IDs = [name_to_ID(member, org) for member in orgs_existing_members[org] if random.random() < 0.2]
 
-    group = user.chat_functionality_v2.create_group(member_info.ID, org_ID, f'Group{random.randint(0,10**6)}', member_info.rsa_sk)
+    with open("/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt", "a") as f:
+        print(member_email, 'creates group in', org, 'with members', ", ".join(participant_IDs), file=f)
 
-    member_info.groups.append(group)
+    member_info = sign_in.sign_in_existing_v2(org_ID, member_email)
+
+    if member_info.ID not in participant_IDs: participant_IDs.append(member_info.ID)
+
+    group = chat_functionality_v2.create_group(
+        member_info.ID, org_ID, f'Group{random.randint(0,10**6)}', participant_IDs, member_info.rsa_sk)
+
+    member_info.groups[group.ID] = group
 
     member_info.process_inbox()
 
 def member_creates_chat_flow():
-    """ign In -> Find User (The Member)
+    """Sign In -> Find User (The Member)
 
 Sign In -> Sign In Existing V2 (The Member)
 
@@ -2163,21 +2230,25 @@ Data Structures -> Member Private -> Process Inbox """
 
     count_calls[3] += 1
 
-    org_ID = random.choice(existing_org_IDs)
+    org_ID = random.choice(list(existing_org_IDs.keys()))
     org = existing_org_IDs[org_ID]
-    member_email = random.choice(orgs_existing_members[org])
+    member_name = random.choice(orgs_existing_members[org])
+    member_email = f'{member_name}@{org}.com'
 
-    verified, org_ID, setup = user.sign_in.find_user(member_email)
+    with open("/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt", "a") as f:
+        print(member_name, 'creates chat in', org, file=f)
+
+
+    verified, org_ID, setup = sign_in.find_user(member_email)
 
     member_info = sign_in.sign_in_existing_v2(org_ID, member_email)
 
-    member_info.process_inbox()
-
     org = existing_org_IDs[org_ID]
 
-    group = random.choice(member_info.groups)
+    group_ID = random.choice(list(member_info.groups.keys()))
+    group = member_info.groups[group_ID]
 
-    chat = user.chat_functionality_v2.create_chat(member_info.ID, org_ID, group, f'{group.name}, Chat{random.randint(0,10**6)}',member_info.rsa_sk)
+    chat = chat_functionality_v2.create_chat(member_info.ID, org_ID, group, f'{group.name}, Chat{random.randint(0,10**6)}',member_info.rsa_sk)
 
     group.add_chats([chat])
 
@@ -2198,19 +2269,21 @@ Data Structures -> Member Private -> Process Inbox """
 
     count_calls[4] += 1
 
-    org_ID = random.choice(existing_org_IDs)
+    org_ID = random.choice(list(existing_org_IDs.keys()))
     org = existing_org_IDs[org_ID]
-    member_email = random.choice(orgs_existing_members[org])
+    member_name = random.choice(orgs_existing_members[org])
+    member_email = f'{member_name}@{org}.com'
 
-    verified, org_ID, setup = user.sign_in.find_user(member_email)
+    with open("/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt", "a") as f:
+        print(member_name, 'sends message in', org, file=f)
+
+
+    verified, org_ID, setup = sign_in.find_user(member_email)
 
     member_info = sign_in.sign_in_existing_v2(org_ID, member_email)
 
-    member_info.process_inbox()
-
-    org = existing_org_IDs[org_ID]
-
-    group = random.choice(member_info.groups)
+    group_ID = random.choice(list(member_info.groups.keys()))
+    group = member_info.groups[group_ID]
 
     chat = random.choice(group.chats)
 
@@ -2222,13 +2295,38 @@ Data Structures -> Member Private -> Process Inbox """
 
     member_info.groups[group.ID].get_chat(chat.ID).messages.append(message)
 
-    user.send.send_message(org_ID, recipient_IDs, member_info.rsa_sk, message)
+    send.send_message(org_ID, recipient_IDs, member_info.rsa_sk, message)
 
     member_info.process_inbox()
 
 
 if __name__ == '__main__':
-    master_flow()
+    try:
+        master_flow()
+
+    except Exception as e:
+        with open("error.txt", "w") as f:
+            f.write(str(e))
+
+
+        with open("count_calls.txt", "w") as f:
+            json.dump(count_calls, f)
+
+        import integrated_testing_check
+
+        raise
+
+    except KeyboardInterrupt:
+
+        pass
+
+    with open("count_calls.txt", "w") as f:
+        json.dump(count_calls, f)
+
+    import integrated_testing_check
+
+
+
 
 
 

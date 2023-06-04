@@ -19,10 +19,10 @@ def complete_user(org_ID, email, rsa_pk, rsa_sk_bundle):
 
     with open('../database_stub/organisations.pickle', 'rb') as orgs:
         organisations = pickle.load(orgs)
-    for member_ID, member in enumerate(organisations[org_ID].members):
+    for member_index, member in enumerate(organisations[org_ID].members):
         if member.email == email:
             member.update(privilege_status = 'member', rsa_pk=rsa_pk, rsa_sk_bundle=rsa_sk_bundle)
-            organisations[org_ID].members[member_ID] = member
+            organisations[org_ID].members[member_index] = member
             with open('../database_stub/organisations.pickle', 'wb') as orgs:
                 pickle.dump(organisations , orgs)
             return data_structures.Member_Private(member)
@@ -40,6 +40,10 @@ def add_organisation(name, members):
     organisations.append(data_structures.Organisation(name, members))
     with open('../database_stub/organisations.pickle', 'wb') as orgs:
         pickle.dump(organisations, orgs)
+
+    """summary = map(lambda x: x['emails'],data_structures.deobjectify(organisations))
+    for i, s in enumerate(summary):
+        print(i, s)"""
     return len(organisations)-1
 
 def add_member(org_ID, member):
@@ -52,7 +56,9 @@ def add_member(org_ID, member):
 
     with open('../database_stub/organisations.pickle', 'rb') as orgs:
         organisations = pickle.load(orgs)
-    organisations[org_ID].add_member(member)
+    organisation = organisations[org_ID]
+    organisation.add_member(member)
+    organisations[org_ID] = organisation
     with open('../database_stub/organisations.pickle', 'wb') as orgs:
         pickle.dump(organisations , orgs)
 
@@ -73,9 +79,10 @@ def clear_hashes():
     with open('../database_stub/verification_hashes.pickle', 'wb') as hashes:
         pickle.dump([], hashes)
 
+
 if __name__ == '__main__':
     from user import sign_in
-    """clear_orgs()"""
+    #clear_orgs()
     #clear_hashes()
     """with open('../database_stub/organisations.pickle',
               'rb') as orgs:

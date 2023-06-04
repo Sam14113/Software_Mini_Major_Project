@@ -66,9 +66,9 @@ def linear_search_value(array, item, key = lambda x:x):
 
 def mixed_search(array, item, prefix_len, key = lambda x:x):
     try:
-        binary_search(array[:prefix_len], item, key, strict = True)
+        return binary_search(array[:prefix_len], item, key, strict = True)
     except ValueError:
-        linear_search(array[prefix_len:], item, key)
+        return prefix_len + linear_search(array[prefix_len:], item, key)
 
 
 def mixed_search_value(array, item, prefix_len, key = lambda x:x):

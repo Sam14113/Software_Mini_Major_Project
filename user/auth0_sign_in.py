@@ -39,18 +39,15 @@ def login():
         'client_id': AUTH0_CLIENT_ID,
         'scope': 'openid profile'
     }
-    device_code_response = requests.post('https://{}/oauth/device/code'.format(AUTH0_DOMAIN), data=device_code_payload)
+    try: device_code_response = requests.post('https://{}/oauth/device/code'.format(AUTH0_DOMAIN), data=device_code_payload)
+    except:
+        raise ConnectionError('We experienced an error connecting to the Auth0 server')
 
     if device_code_response.status_code != 200:
-        print('Error generating the device code')
-        raise
+        raise ConnectionError('We experienced an error generating the device code')
 
-    print('Device code successful')
     device_code_data = device_code_response.json()
     yield device_code_data['user_code']
-    print(ds.deobjectify(device_code_data))
-    print('1. On your computer or mobile device navigate to: ', device_code_data['verification_uri_complete'])
-    print('2. Enter the following code: ', device_code_data['user_code'])
     yield device_code_data['verification_uri_complete']
 
 
@@ -66,8 +63,6 @@ def login():
 
         token_data = token_response.json()
         if token_response.status_code == 200:
-            print('Authenticated!')
-            print('- Id Token: {}'.format(token_data['id_token']))
 
             validate_token(token_data['id_token'])
             global current_user
@@ -76,7 +71,7 @@ def login():
             yield current_user
             authenticated = True
         elif token_data['error'] not in ('authorization_pending', 'slow_down'):
-            print(token_data['error_description'])
+            raise ConnectionError('It seems like something went wrong with the login.')
 
         else:
             time.sleep(device_code_data['interval'])

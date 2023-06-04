@@ -194,9 +194,14 @@ class Member():
 
     def add_message(self, message):
         self.inbox.append(message)
+        with open('/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt', 'a') as f:
+            print("A message was sent to", self.ID, file = f)
+            print(self.ID, "has", len(self.inbox), 'messages', file = f)
 
     def get_inbox(self):
-        return self.inbox
+        inbox = self.inbox
+        self.inbox = []
+        return inbox
 
     def clear_inbox(self):
         self.inbox = []
@@ -209,8 +214,15 @@ class Member_Private():
     def __init__(self, member):
         self.name = member.name
         self.email = member.email
-        self.rsa_sk_bundle = member.rsa_sk_bundle
+        self.ID = member.ID
+
+        try: self.rsa_sk_bundle = member.rsa_sk_bundle
+        except AttributeError:
+            print(deobjectify(member))
+            raise
+
         if member.org_ID or member.org_ID == 0: self.org_ID = member.org_ID
+        else: self.org_ID = sign_in.find_user(member.email)[1]
         self.inbox = []
         self.groups = dict()
 
@@ -254,16 +266,18 @@ class Member_Private():
             try:
                 message = self.decrypt_message(message)
             except ValueError:
-                raise
                 raise ValueError('Invalid message')
 
             # Update messages with the new message, and take action if neccesary
 
             group = self.groups.get(message.group_ID)
             if group is None and message.type == 'group_invitation':
+
+                """with open('/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/log.txt', 'a') as f:
+                    print(self.ID, "acknowledged group invitation from", message.sender_ID, file = f)"""
+
                 group = Group(message.group_ID)
                 group.rename(message.content['group_name'])
-                print("GROUP NAME", group.name)
                 # breakpoint()
             elif group is None:
                 raise ValueError('Group not found')
@@ -300,7 +314,6 @@ class Member_Private():
             # Update with the updated version of the chat
             group.update_chat(chat)
             self.groups.update({group.ID: group})
-            print(len(self.groups))
 
         # Encrypt updated groups using AES
 
@@ -312,14 +325,14 @@ class Member_Private():
         # Store encrypted updated groups on device
 
         with open(
-                f'/Users/adam.gottlieb/PycharmProjects/Software_Mini_Major_Project/user/user_data/{self.email}_groups.bin',
+                f'/user/user_data/{self.email}_groups.bin',
                 'wb') as groups_file:
             groups_file.write(groups_encrypted_info)
 
         # Clear local inbox
         self.inbox = list()
 
-        print("FINISHED PROCESSING INBOX")
+
         # DEBUGGING
 
         """debug = str(deobjectify(self.groups))
@@ -346,10 +359,16 @@ class Organisation():
         self.members = auxiliary.bubble_sort(list(members), lambda member:member.ID)
         self.len_sorted = len(self.members)
         self.emails = [member.email for member in members]
+        self.group_IDs = []
         # emails are stored separately so that they can be accessed more easily
         #self.open_verification_hashes = []
 
+    def get_org_ID(self):
+        return sign_in.find_user(self.members[0].email)[1]
+
     def add_member(self, member):
+        member.org_ID = self.get_org_ID()
+
         self.members.append(member)
         self.emails.append(member.email)
         if len(self.members) - self.len_sorted > 4*math.log2(len(self.members)):
@@ -363,7 +382,22 @@ class Organisation():
 
     def remove_member(self, member_ID):
         index = auxiliary.mixed_search(self.members, member_ID, self.len_sorted, lambda member:member.ID)
+        if index < self.len_sorted: self.len_sorted += -1
         self.members.pop(index)
+
+    def get_member(self, member_ID):
+        member = auxiliary.mixed_search_value(self.members, member_ID, self.len_sorted, lambda member:member.ID)
+        return member
+
+    def update_member(self, member_ID, member):
+        index = auxiliary.mixed_search(self.members, member_ID, self.len_sorted, lambda member:member.ID)
+        self.members[index] = member
+
+    def add_group(self, group_ID):
+        if group_ID not in self.group_IDs:
+            self.group_IDs.append(group_ID)
+        else: raise ValueError('Group ID already used')
+
 
 def deobjectify(obj):
     if type(obj) in (list, tuple, set):
