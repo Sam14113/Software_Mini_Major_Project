@@ -1,6 +1,6 @@
 # Software_Mini_Major_Project
  
-This project was a component of my internal assessment for HSC Software Design and Development
+This project was a component of my internal assessment for HSC Software Design and Development. An 'online help' page, which includes video tutorials of the working application, can be found at adamsgottlieb.wix.com/clarity
 
 It was developed as a first prototype for a messaging application, and allowed me to research and gain experience in logic, security, encryption, version control and networking - some of which became evident in the program.
 
